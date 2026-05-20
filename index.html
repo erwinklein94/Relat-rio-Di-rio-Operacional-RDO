@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RDO - Relatório Diário Operacional</title>
+  <title>RDO</title>
   <style>
     :root {
       --bg: #f4f6f8;
@@ -41,7 +41,7 @@
 
     header h1 {
       margin: 0;
-      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
       letter-spacing: -0.03em;
     }
 
@@ -125,7 +125,7 @@
     }
 
     textarea {
-      min-height: 260px;
+      min-height: 160px;
       resize: vertical;
     }
 
@@ -231,12 +231,14 @@
       color: var(--primary-dark);
     }
 
+    .entries-list,
     .history-list {
       display: grid;
       gap: 12px;
       margin-top: 16px;
     }
 
+    .entry-item,
     .history-item {
       border: 1px solid var(--border);
       border-radius: 16px;
@@ -244,17 +246,20 @@
       background: #ffffff;
     }
 
+    .entry-item h3,
     .history-item h3 {
       margin: 0 0 6px;
       font-size: 1.05rem;
     }
 
+    .entry-item p,
     .history-item p {
       margin: 0;
       color: var(--muted);
       white-space: pre-wrap;
     }
 
+    .entry-item .actions,
     .history-item .actions {
       margin-top: 12px;
     }
@@ -280,13 +285,6 @@
 
     #print-area {
       display: none;
-    }
-
-    footer {
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.9rem;
-      padding: 18px;
     }
 
     @media (max-width: 720px) {
@@ -345,19 +343,19 @@
 </head>
 <body>
   <header>
-    <h1>Relatório Diário Operacional - RDO</h1>
+    <h1>RDO</h1>
     <p>Registro de atividades diárias de serviço</p>
   </header>
 
   <main>
-    <nav class="tabs no-print" aria-label="Abas principais">
+    <nav class="tabs" aria-label="Abas principais">
       <button class="tab-button active" data-tab="form-tab">Relatório individual</button>
       <button class="tab-button" data-tab="history-tab">Histórico</button>
     </nav>
 
     <section id="form-tab" class="tab-content">
       <div class="card">
-        <div class="grid no-print">
+        <div class="grid">
           <div>
             <label for="report-date">Dia do serviço</label>
             <input id="report-date" type="date" />
@@ -368,27 +366,42 @@
           </div>
         </div>
 
-        <div class="no-print" style="margin-top: 14px;">
-          <label for="activities">Atividades realizadas</label>
-          <textarea id="activities" placeholder="Exemplo:
-- Chegada ao local de trabalho
-- Verificação das atividades do dia
-- Execução dos serviços realizados
-- Observações importantes"></textarea>
-          <div class="help">As informações ficam salvas somente neste navegador/dispositivo.</div>
+        <div class="grid" style="margin-top: 14px;">
+          <div>
+            <label for="entry-time">Horário</label>
+            <input id="entry-time" type="time" />
+          </div>
+          <div>
+            <label for="now-btn">Atalho de horário</label>
+            <button class="neutral" id="now-btn" type="button" style="width: 100%;">Usar horário atual</button>
+          </div>
         </div>
 
-        <div class="actions no-print">
-          <button class="primary" id="save-btn">Salvar relatório</button>
-          <button class="secondary" id="copy-btn">Copiar texto</button>
-          <button class="neutral" id="pdf-btn">Exportar PDF</button>
-          <a class="button-link success" id="whatsapp-btn" href="#" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>
+        <div style="margin-top: 14px;">
+          <label for="entry-note">Anotação</label>
+          <textarea id="entry-note" placeholder="Exemplo:
+- Chegada ao local de trabalho
+- Execução de serviço específico
+- Observação importante
+- Encerramento da atividade"></textarea>
+          <div class="help">Escolha o dia, informe o horário e escreva a anotação. Depois clique em “Adicionar anotação”. É possível adicionar vários horários no mesmo dia.</div>
+        </div>
+
+        <div class="actions">
+          <button class="primary" id="add-entry-btn">Adicionar anotação</button>
+          <button class="secondary" id="save-worker-btn">Salvar colaborador</button>
+          <button class="secondary" id="copy-btn">Copiar texto do dia</button>
+          <button class="neutral" id="pdf-btn">Exportar PDF do dia</button>
+          <a class="button-link success" id="whatsapp-btn" href="#" target="_blank" rel="noopener">Enviar dia pelo WhatsApp</a>
           <button class="danger" id="clear-form-btn">Limpar campos</button>
         </div>
 
-        <div id="status" class="status no-print" role="status"></div>
+        <div id="status" class="status" role="status"></div>
 
-        <h2 class="no-print" style="margin-top: 24px;">Pré-visualização</h2>
+        <h2 style="margin-top: 24px;">Anotações do dia</h2>
+        <div id="entries-list" class="entries-list"></div>
+
+        <h2 style="margin-top: 24px;">Pré-visualização</h2>
         <div id="preview" class="preview-box"></div>
       </div>
     </section>
@@ -402,7 +415,7 @@
           </div>
           <div style="min-width: min(320px, 100%);">
             <label for="history-search">Buscar no histórico</label>
-            <input id="history-search" type="search" placeholder="Busque por data, colaborador ou atividade" />
+            <input id="history-search" type="search" placeholder="Busque por data, colaborador, horário ou anotação" />
           </div>
         </div>
 
@@ -458,23 +471,22 @@
   </main>
 
   <section id="print-area" aria-hidden="true">
-    <h1 id="print-title">Relatório Diário Operacional - RDO</h1>
+    <h1 id="print-title">RDO</h1>
     <div id="print-content" class="print-content"></div>
   </section>
 
-  <footer>
-    RDO local para uso em GitHub Pages • Desenvolvido em HTML, CSS e JavaScript puro
-  </footer>
-
   <script>
-    const STORAGE_KEY = 'rdo_relatorios_operacionais_v1';
+    const STORAGE_KEY = 'rdo_relatorios_operacionais_v2';
+    const OLD_STORAGE_KEY = 'rdo_relatorios_operacionais_v1';
     const DEFAULT_WORKER = 'Colaborador não informado';
 
     const dateInput = document.getElementById('report-date');
     const workerInput = document.getElementById('worker-name');
-    const activitiesInput = document.getElementById('activities');
+    const timeInput = document.getElementById('entry-time');
+    const noteInput = document.getElementById('entry-note');
     const statusEl = document.getElementById('status');
     const previewEl = document.getElementById('preview');
+    const entriesList = document.getElementById('entries-list');
     const whatsappBtn = document.getElementById('whatsapp-btn');
     const historyList = document.getElementById('history-list');
     const historySearch = document.getElementById('history-search');
@@ -494,72 +506,125 @@
       return new Date(now - timezoneOffset).toISOString().slice(0, 10);
     }
 
+    function currentTimeHHMM() {
+      const now = new Date();
+      return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
+
     function formatDateBR(dateISO) {
       if (!dateISO) return 'Data não informada';
       const [year, month, day] = dateISO.split('-');
       return `${day}/${month}/${year}`;
     }
 
+    function createEntry(time, note) {
+      return {
+        id: `entry_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+        time,
+        note
+      };
+    }
+
+    function sortEntries(entries) {
+      return [...entries].sort((a, b) => {
+        const timeA = a.time || '99:99';
+        const timeB = b.time || '99:99';
+        return timeA.localeCompare(timeB);
+      });
+    }
+
+    function normalizeReport(report) {
+      const entries = Array.isArray(report.entries)
+        ? report.entries.map(entry => ({
+            id: entry.id || createEntry(entry.time || '', entry.note || '').id,
+            time: entry.time || '',
+            note: entry.note || entry.activities || ''
+          })).filter(entry => entry.note)
+        : report.activities
+          ? [createEntry('', report.activities)]
+          : [];
+
+      return {
+        id: report.date || report.id || todayISO(),
+        date: report.date || report.id || todayISO(),
+        worker: report.worker || DEFAULT_WORKER,
+        entries: sortEntries(entries),
+        updatedAt: report.updatedAt || new Date().toISOString()
+      };
+    }
+
     function loadReports() {
       try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          return JSON.parse(saved).map(normalizeReport).sort((a, b) => b.date.localeCompare(a.date));
+        }
+
+        const oldSaved = localStorage.getItem(OLD_STORAGE_KEY);
+        if (oldSaved) {
+          const migrated = JSON.parse(oldSaved).map(normalizeReport).sort((a, b) => b.date.localeCompare(a.date));
+          saveReports(migrated);
+          return migrated;
+        }
+
+        return [];
       } catch (error) {
         return [];
       }
     }
 
     function saveReports(reports) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+      const normalized = reports
+        .map(normalizeReport)
+        .filter(report => report.date && report.entries.length > 0)
+        .sort((a, b) => b.date.localeCompare(a.date));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     }
 
-    function getCurrentReport() {
+    function getSelectedReport() {
+      const selectedDate = dateInput.value;
+      if (!selectedDate) return null;
+      return loadReports().find(report => report.date === selectedDate) || null;
+    }
+
+    function getDraftReport() {
+      const savedReport = getSelectedReport();
       return {
         id: dateInput.value || todayISO(),
         date: dateInput.value,
-        worker: workerInput.value.trim() || DEFAULT_WORKER,
-        activities: activitiesInput.value.trim(),
-        updatedAt: new Date().toISOString()
+        worker: workerInput.value.trim() || savedReport?.worker || DEFAULT_WORKER,
+        entries: savedReport ? sortEntries(savedReport.entries) : [],
+        updatedAt: savedReport?.updatedAt || new Date().toISOString()
       };
     }
 
-    function buildReportText(report = getCurrentReport()) {
-      return `RELATÓRIO DIÁRIO OPERACIONAL - RDO
+    function buildReportText(report = getDraftReport()) {
+      const entriesText = report.entries.length
+        ? report.entries.map(entry => `${entry.time || 'Sem horário'} - ${entry.note}`).join('\n')
+        : 'Nenhuma anotação informada.';
 
-Colaborador: ${report.worker || DEFAULT_WORKER}
-Data: ${formatDateBR(report.date)}
-
-Atividades realizadas:
-${report.activities || 'Nenhuma atividade informada.'}`;
+      return `RDO\n\nColaborador: ${report.worker || DEFAULT_WORKER}\nData: ${formatDateBR(report.date)}\n\nAnotações:\n${entriesText}`;
     }
 
     function buildConsolidatedText(reports, title) {
       if (!reports.length) {
-        return `${title}
-
-Nenhum relatório encontrado para o período selecionado.`;
+        return `${title}\n\nNenhum relatório encontrado para o período selecionado.`;
       }
 
       const separator = '----------------------------------------';
       const reportBlocks = reports.map(report => {
-        return `${separator}
-Data: ${formatDateBR(report.date)}
-Colaborador: ${report.worker || DEFAULT_WORKER}
+        const entriesText = report.entries.length
+          ? report.entries.map(entry => `${entry.time || 'Sem horário'} - ${entry.note}`).join('\n')
+          : 'Nenhuma anotação informada.';
 
-Atividades realizadas:
-${report.activities || 'Nenhuma atividade informada.'}`;
+        return `${separator}\nData: ${formatDateBR(report.date)}\nColaborador: ${report.worker || DEFAULT_WORKER}\n\nAnotações:\n${entriesText}`;
       }).join(String.fromCharCode(10, 10));
 
       const firstDate = formatDateBR(reports[0].date);
       const lastDate = formatDateBR(reports[reports.length - 1].date);
       const workers = [...new Set(reports.map(report => report.worker || DEFAULT_WORKER))].join(', ');
 
-      return `${title}
-
-Colaborador(es): ${workers}
-Quantidade de relatórios: ${reports.length}
-Período listado: ${firstDate} até ${lastDate}
-
-${reportBlocks}`;
+      return `${title}\n\nColaborador(es): ${workers}\nQuantidade de dias registrados: ${reports.length}\nPeríodo listado: ${firstDate} até ${lastDate}\n\n${reportBlocks}`;
     }
 
     function setStatus(message, isError = false) {
@@ -577,40 +642,86 @@ ${reportBlocks}`;
     }
 
     function updatePreview() {
-      const text = buildReportText();
+      const report = getDraftReport();
+      const text = buildReportText(report);
       previewEl.textContent = text;
       whatsappBtn.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      renderEntriesForSelectedDay();
+      updateConsolidatedLinks();
     }
 
-    function saveCurrentReport() {
-      const report = getCurrentReport();
-
-      if (!report.date) {
+    function saveWorkerForSelectedDate(showMessage = true) {
+      const selectedDate = dateInput.value;
+      if (!selectedDate) {
         setStatus('Escolha o dia do serviço antes de salvar.', true);
+        dateInput.focus();
+        return false;
+      }
+
+      const reports = loadReports();
+      const reportIndex = reports.findIndex(report => report.date === selectedDate);
+
+      if (reportIndex < 0) {
+        if (showMessage) setStatus('Adicione pelo menos uma anotação antes de salvar o colaborador.', true);
+        return false;
+      }
+
+      reports[reportIndex].worker = workerInput.value.trim() || DEFAULT_WORKER;
+      reports[reportIndex].updatedAt = new Date().toISOString();
+      saveReports(reports);
+      renderHistory();
+      updatePreview();
+      if (showMessage) setStatus('Colaborador salvo para este dia.');
+      return true;
+    }
+
+    function addEntryToReport() {
+      const selectedDate = dateInput.value;
+      const selectedTime = timeInput.value;
+      const note = noteInput.value.trim();
+
+      if (!selectedDate) {
+        setStatus('Escolha o dia do serviço antes de adicionar a anotação.', true);
         dateInput.focus();
         return;
       }
 
-      if (!report.activities) {
-        setStatus('Insira as atividades realizadas antes de salvar.', true);
-        activitiesInput.focus();
+      if (!selectedTime) {
+        setStatus('Informe o horário da anotação.', true);
+        timeInput.focus();
+        return;
+      }
+
+      if (!note) {
+        setStatus('Escreva a anotação antes de adicionar.', true);
+        noteInput.focus();
         return;
       }
 
       const reports = loadReports();
-      const existingIndex = reports.findIndex(item => item.date === report.date);
+      const reportIndex = reports.findIndex(report => report.date === selectedDate);
+      const newEntry = createEntry(selectedTime, note);
 
-      if (existingIndex >= 0) {
-        reports[existingIndex] = { ...reports[existingIndex], ...report };
+      if (reportIndex >= 0) {
+        reports[reportIndex].worker = workerInput.value.trim() || reports[reportIndex].worker || DEFAULT_WORKER;
+        reports[reportIndex].entries = sortEntries([...reports[reportIndex].entries, newEntry]);
+        reports[reportIndex].updatedAt = new Date().toISOString();
       } else {
-        reports.push(report);
+        reports.push({
+          id: selectedDate,
+          date: selectedDate,
+          worker: workerInput.value.trim() || DEFAULT_WORKER,
+          entries: [newEntry],
+          updatedAt: new Date().toISOString()
+        });
       }
 
-      reports.sort((a, b) => b.date.localeCompare(a.date));
       saveReports(reports);
+      noteInput.value = '';
+      timeInput.value = '';
       renderHistory();
-      updateConsolidatedLinks();
-      setStatus('Relatório salvo com sucesso.');
+      updatePreview();
+      setStatus('Anotação adicionada ao relatório do dia.');
     }
 
     async function copyText(text = buildReportText()) {
@@ -623,12 +734,19 @@ ${reportBlocks}`;
     }
 
     function clearForm() {
-      if (!confirm('Deseja limpar os campos do relatório atual?')) return;
+      if (!confirm('Deseja limpar os campos da tela atual? As anotações já salvas não serão apagadas.')) return;
       dateInput.value = todayISO();
       workerInput.value = '';
-      activitiesInput.value = '';
-      updatePreview();
+      timeInput.value = '';
+      noteInput.value = '';
+      loadSelectedDateIntoForm();
       setStatus('Campos limpos.');
+    }
+
+    function loadSelectedDateIntoForm() {
+      const report = getSelectedReport();
+      workerInput.value = report && report.worker !== DEFAULT_WORKER ? report.worker : '';
+      updatePreview();
     }
 
     function loadReportIntoForm(reportDate) {
@@ -637,7 +755,8 @@ ${reportBlocks}`;
 
       dateInput.value = report.date;
       workerInput.value = report.worker === DEFAULT_WORKER ? '' : report.worker || '';
-      activitiesInput.value = report.activities || '';
+      timeInput.value = '';
+      noteInput.value = '';
       updatePreview();
       openTab('form-tab');
       setStatus('Relatório carregado para edição.');
@@ -648,8 +767,82 @@ ${reportBlocks}`;
       const reports = loadReports().filter(item => item.date !== reportDate);
       saveReports(reports);
       renderHistory();
-      updateConsolidatedLinks();
+      updatePreview();
       setStatus('Relatório removido do histórico.');
+    }
+
+    function editEntry(reportDate, entryId) {
+      const reports = loadReports();
+      const reportIndex = reports.findIndex(report => report.date === reportDate);
+      if (reportIndex < 0) return;
+
+      const entryIndex = reports[reportIndex].entries.findIndex(entry => entry.id === entryId);
+      if (entryIndex < 0) return;
+
+      const currentEntry = reports[reportIndex].entries[entryIndex];
+      const newTime = prompt('Editar horário da anotação:', currentEntry.time || '');
+      if (newTime === null) return;
+
+      const newNote = prompt('Editar anotação:', currentEntry.note || '');
+      if (newNote === null) return;
+
+      if (!newTime.trim() || !newNote.trim()) {
+        setStatus('Horário e anotação não podem ficar vazios.', true);
+        return;
+      }
+
+      reports[reportIndex].entries[entryIndex] = {
+        ...currentEntry,
+        time: newTime.trim(),
+        note: newNote.trim()
+      };
+      reports[reportIndex].entries = sortEntries(reports[reportIndex].entries);
+      reports[reportIndex].updatedAt = new Date().toISOString();
+      saveReports(reports);
+      renderHistory();
+      updatePreview();
+      setStatus('Anotação editada.');
+    }
+
+    function deleteEntry(reportDate, entryId) {
+      if (!confirm('Deseja apagar esta anotação?')) return;
+
+      const reports = loadReports();
+      const reportIndex = reports.findIndex(report => report.date === reportDate);
+      if (reportIndex < 0) return;
+
+      reports[reportIndex].entries = reports[reportIndex].entries.filter(entry => entry.id !== entryId);
+
+      if (reports[reportIndex].entries.length === 0) {
+        reports.splice(reportIndex, 1);
+      } else {
+        reports[reportIndex].updatedAt = new Date().toISOString();
+      }
+
+      saveReports(reports);
+      renderHistory();
+      updatePreview();
+      setStatus('Anotação removida.');
+    }
+
+    function renderEntriesForSelectedDay() {
+      const report = getDraftReport();
+
+      if (!report.entries.length) {
+        entriesList.innerHTML = '<div class="empty">Nenhuma anotação adicionada para este dia.</div>';
+        return;
+      }
+
+      entriesList.innerHTML = report.entries.map(entry => `
+        <article class="entry-item">
+          <h3>${escapeHTML(entry.time || 'Sem horário')}</h3>
+          <p>${escapeHTML(entry.note)}</p>
+          <div class="actions">
+            <button class="secondary" onclick="editEntry('${report.date}', '${entry.id}')">Editar</button>
+            <button class="danger" onclick="deleteEntry('${report.date}', '${entry.id}')">Apagar</button>
+          </div>
+        </article>
+      `).join('');
     }
 
     function getReportsByOrder(reports) {
@@ -678,14 +871,14 @@ ${reportBlocks}`;
       const start = periodStartInput.value;
       const end = periodEndInput.value;
 
-      if (start && end) return `RELATÓRIO CONSOLIDADO RDO - ${formatDateBR(start)} até ${formatDateBR(end)}`;
-      if (start) return `RELATÓRIO CONSOLIDADO RDO - a partir de ${formatDateBR(start)}`;
-      if (end) return `RELATÓRIO CONSOLIDADO RDO - até ${formatDateBR(end)}`;
-      return 'RELATÓRIO CONSOLIDADO RDO - período não definido';
+      if (start && end) return `RDO CONSOLIDADO - ${formatDateBR(start)} até ${formatDateBR(end)}`;
+      if (start) return `RDO CONSOLIDADO - a partir de ${formatDateBR(start)}`;
+      if (end) return `RDO CONSOLIDADO - até ${formatDateBR(end)}`;
+      return 'RDO CONSOLIDADO - período não definido';
     }
 
     function getAllTitle() {
-      return 'RELATÓRIO CONSOLIDADO RDO - HISTÓRICO COMPLETO';
+      return 'RDO CONSOLIDADO - HISTÓRICO COMPLETO';
     }
 
     function updateConsolidatedLinks() {
@@ -703,13 +896,32 @@ ${reportBlocks}`;
         ? `${start ? formatDateBR(start) : 'início'} até ${end ? formatDateBR(end) : 'hoje'}`
         : 'Nenhum período selecionado. Os botões de período usarão todos os relatórios salvos.';
 
-      periodSummary.textContent = `${periodLabel} • ${periodReports.length} relatório(s) encontrado(s). Histórico completo: ${allReports.length} relatório(s).`;
+      periodSummary.textContent = `${periodLabel} • ${periodReports.length} dia(s) encontrado(s). Histórico completo: ${allReports.length} dia(s).`;
     }
 
     function printText(title, text) {
       printTitle.textContent = title;
       printContent.textContent = text;
       window.print();
+    }
+
+    function copyCurrentDay() {
+      const report = getDraftReport();
+      if (!report.entries.length) {
+        setStatus('Nenhuma anotação salva para este dia.', true);
+        return;
+      }
+      copyText(buildReportText(report));
+    }
+
+    function printCurrentDay() {
+      const report = getDraftReport();
+      if (!report.entries.length) {
+        setStatus('Nenhuma anotação salva para este dia.', true);
+        return;
+      }
+      const title = `RDO - ${formatDateBR(report.date)}`;
+      printText(title, buildReportText(report));
     }
 
     function copyPeriodReports() {
@@ -760,7 +972,8 @@ ${reportBlocks}`;
     function renderHistory() {
       const search = historySearch.value.trim().toLowerCase();
       const reports = loadReports().filter(report => {
-        const haystack = `${formatDateBR(report.date)} ${report.worker} ${report.activities}`.toLowerCase();
+        const entriesText = report.entries.map(entry => `${entry.time} ${entry.note}`).join(' ');
+        const haystack = `${formatDateBR(report.date)} ${report.worker} ${entriesText}`.toLowerCase();
         return haystack.includes(search);
       });
 
@@ -771,11 +984,15 @@ ${reportBlocks}`;
       }
 
       historyList.innerHTML = reports.map(report => {
-        const safeActivities = escapeHTML(report.activities || '').slice(0, 500);
+        const entriesPreview = report.entries
+          .map(entry => `${entry.time || 'Sem horário'} - ${entry.note}`)
+          .join('\n')
+          .slice(0, 650);
+
         return `
           <article class="history-item">
             <h3>${formatDateBR(report.date)} • ${escapeHTML(report.worker || DEFAULT_WORKER)}</h3>
-            <p>${safeActivities}${(report.activities || '').length > 500 ? '...' : ''}</p>
+            <p>${escapeHTML(entriesPreview)}${entriesPreview.length >= 650 ? '...' : ''}</p>
             <div class="actions">
               <button class="secondary" onclick="loadReportIntoForm('${report.date}')">Editar</button>
               <button class="neutral" onclick="copySavedReport('${report.date}')">Copiar</button>
@@ -808,7 +1025,7 @@ ${reportBlocks}`;
     function printSavedReport(reportDate) {
       const report = loadReports().find(item => item.date === reportDate);
       if (!report) return;
-      const title = `RELATÓRIO DIÁRIO OPERACIONAL - ${formatDateBR(report.date)}`;
+      const title = `RDO - ${formatDateBR(report.date)}`;
       printText(title, buildReportText(report));
     }
 
@@ -832,14 +1049,8 @@ ${reportBlocks}`;
           if (!Array.isArray(imported)) throw new Error('Formato inválido');
 
           const validReports = imported
-            .filter(item => item && item.date && typeof item.activities === 'string')
-            .map(item => ({
-              id: item.date,
-              date: item.date,
-              worker: item.worker || DEFAULT_WORKER,
-              activities: item.activities,
-              updatedAt: item.updatedAt || new Date().toISOString()
-            }));
+            .map(normalizeReport)
+            .filter(report => report.date && report.entries.length > 0);
 
           if (validReports.length === 0) {
             setStatus('Nenhum relatório válido encontrado no arquivo.', true);
@@ -855,10 +1066,9 @@ ${reportBlocks}`;
             else merged.push(report);
           });
 
-          merged.sort((a, b) => b.date.localeCompare(a.date));
           saveReports(merged);
           renderHistory();
-          updateConsolidatedLinks();
+          updatePreview();
           setStatus('Backup importado com sucesso.');
         } catch (error) {
           setStatus('Não foi possível importar o arquivo. Verifique se é um backup JSON válido.', true);
@@ -871,7 +1081,7 @@ ${reportBlocks}`;
       if (!confirm('Tem certeza que deseja apagar todo o histórico? Esta ação não poderá ser desfeita.')) return;
       localStorage.removeItem(STORAGE_KEY);
       renderHistory();
-      updateConsolidatedLinks();
+      updatePreview();
       setStatus('Todo o histórico foi apagado.');
     }
 
@@ -890,10 +1100,15 @@ ${reportBlocks}`;
       button.addEventListener('click', () => openTab(button.dataset.tab));
     });
 
-    document.getElementById('save-btn').addEventListener('click', saveCurrentReport);
-    document.getElementById('copy-btn').addEventListener('click', () => copyText());
-    document.getElementById('pdf-btn').addEventListener('click', () => printText('RELATÓRIO DIÁRIO OPERACIONAL - RDO', buildReportText()));
+    document.getElementById('add-entry-btn').addEventListener('click', addEntryToReport);
+    document.getElementById('save-worker-btn').addEventListener('click', () => saveWorkerForSelectedDate(true));
+    document.getElementById('copy-btn').addEventListener('click', copyCurrentDay);
+    document.getElementById('pdf-btn').addEventListener('click', printCurrentDay);
     document.getElementById('clear-form-btn').addEventListener('click', clearForm);
+    document.getElementById('now-btn').addEventListener('click', () => {
+      timeInput.value = currentTimeHHMM();
+      updatePreview();
+    });
     document.getElementById('export-backup-btn').addEventListener('click', exportBackup);
     document.getElementById('import-backup-btn').addEventListener('click', () => backupFile.click());
     document.getElementById('delete-all-btn').addEventListener('click', deleteAllReports);
@@ -909,9 +1124,10 @@ ${reportBlocks}`;
       backupFile.value = '';
     });
 
-    [dateInput, workerInput, activitiesInput].forEach(input => {
-      input.addEventListener('input', updatePreview);
-    });
+    dateInput.addEventListener('change', loadSelectedDateIntoForm);
+    workerInput.addEventListener('input', updatePreview);
+    timeInput.addEventListener('input', updatePreview);
+    noteInput.addEventListener('input', updatePreview);
 
     [periodStartInput, periodEndInput, periodOrderInput].forEach(input => {
       input.addEventListener('input', updateConsolidatedLinks);
@@ -921,7 +1137,7 @@ ${reportBlocks}`;
     historySearch.addEventListener('input', renderHistory);
 
     dateInput.value = todayISO();
-    updatePreview();
+    loadSelectedDateIntoForm();
     renderHistory();
     updateConsolidatedLinks();
   </script>
