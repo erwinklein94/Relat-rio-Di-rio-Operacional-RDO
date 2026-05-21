@@ -349,6 +349,60 @@
       color: var(--danger);
     }
 
+
+    .fixed-checklist-section {
+      margin-top: 18px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--surface-soft);
+      padding: 14px;
+    }
+
+    .fixed-checklist-section h3 {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    .fixed-checklist-section p {
+      margin: 4px 0 12px;
+      color: var(--muted);
+    }
+
+    .fixed-checklist {
+      display: grid;
+      gap: 10px;
+    }
+
+    .checklist-row {
+      display: grid;
+      grid-template-columns: minmax(210px, 1.1fr) 110px minmax(220px, 1.4fr);
+      gap: 10px;
+      align-items: end;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: white;
+    }
+
+    .checklist-item-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      margin-bottom: 0;
+    }
+
+    .checklist-item-label input {
+      width: auto;
+      min-width: 18px;
+      height: 18px;
+      margin: 0;
+    }
+
+    .checklist-row input[type="number"] {
+      min-width: 0;
+    }
+
     .preview-box {
       background: var(--surface-soft);
       border: 1px solid var(--border);
@@ -411,6 +465,12 @@
       .card {
         padding: 16px;
       }
+
+
+      .checklist-row {
+        grid-template-columns: 1fr;
+      }
+
     }
 
     @media print {
@@ -550,6 +610,12 @@
         <div style="margin-top: 14px;">
           <label for="general-notes">Observações gerais do dia</label>
           <textarea id="general-notes" placeholder="Informações gerais, pendências, orientações recebidas, condições de trabalho..."></textarea>
+        </div>
+
+        <div class="fixed-checklist-section">
+          <h3>Checklist fixo de equipe e equipamentos</h3>
+          <p>Marque o item utilizado, informe a quantidade e, quando precisar, registre nomes, placas ou prefixos. Ex.: Fiscalização: Adriel e Arthur.</p>
+          <div id="fixed-checklist" class="fixed-checklist"></div>
         </div>
 
         <div class="actions">
@@ -769,8 +835,23 @@
       dayStatus: 'Em andamento',
       responsible: '',
       generalNotes: '',
+      checklist: [],
       entries: []
     };
+
+    const FIXED_CHECKLIST_ITEMS = [
+      { id: 'encarregado', label: 'Encarregado', defaultQuantity: 1, detailsPlaceholder: 'Nome(s), se quiser' },
+      { id: 'chefe_boletim', label: 'Chefe de boletim', defaultQuantity: 1, detailsPlaceholder: 'Nome(s), se quiser' },
+      { id: 'motorista', label: 'Motorista', defaultQuantity: 1, detailsPlaceholder: 'Nome(s), se quiser' },
+      { id: 'operador_egp', label: 'Operador EGP', defaultQuantity: 1, detailsPlaceholder: 'Nome(s), se quiser' },
+      { id: 'operador_epp', label: 'Operador EPP', defaultQuantity: 1, detailsPlaceholder: 'Nome(s), se quiser' },
+      { id: 'ajudante', label: 'Ajudante', defaultQuantity: 1, detailsPlaceholder: 'Nome(s), se quiser' },
+      { id: 'fiscalizacao', label: 'Fiscalização', defaultQuantity: 0, detailsPlaceholder: 'Ex.: Adriel e Arthur' },
+      { id: 'caminhao_cabine_articulada_4x2', label: 'Caminhão Cabine Articulada 4x2', defaultQuantity: 1, detailsPlaceholder: 'Placa/prefixo, se houver' },
+      { id: 'caminhao_6x4', label: 'Caminhão 6x4', defaultQuantity: 0, detailsPlaceholder: 'Placa/prefixo, se houver' },
+      { id: 'mini_escavadeira', label: 'Mini escavadeira', defaultQuantity: 0, detailsPlaceholder: 'Prefixo, se houver' },
+      { id: 'escavadeira_hidraulica', label: 'Escavadeira hidráulica', defaultQuantity: 1, detailsPlaceholder: 'Prefixo, se houver' }
+    ];
 
     let editingEntryId = null;
 
@@ -793,6 +874,7 @@
       dayStatus: document.getElementById('day-status'),
       responsible: document.getElementById('responsible'),
       generalNotes: document.getElementById('general-notes'),
+      fixedChecklist: document.getElementById('fixed-checklist'),
 
       entryFormTitle: document.getElementById('entry-form-title'),
       entryTime: document.getElementById('entry-time'),
@@ -886,6 +968,130 @@
       };
     }
 
+    function defaultChecklist() {
+      return FIXED_CHECKLIST_ITEMS.map(item => ({
+        id: item.id,
+        label: item.label,
+        checked: item.defaultQuantity > 0,
+        quantity: item.defaultQuantity,
+        details: ''
+      }));
+    }
+
+    function normalizeChecklist(checklist = []) {
+      const savedItems = Array.isArray(checklist) ? checklist : [];
+      const savedById = new Map(savedItems.map(item => [item.id, item]));
+
+      return FIXED_CHECKLIST_ITEMS.map(defaultItem => {
+        const saved = savedById.get(defaultItem.id) || {};
+        const rawQuantity = saved.quantity ?? saved.qty ?? defaultItem.defaultQuantity;
+        const parsedQuantity = Number.parseInt(rawQuantity, 10);
+        const quantity = Number.isFinite(parsedQuantity) && parsedQuantity >= 0 ? parsedQuantity : defaultItem.defaultQuantity;
+        const checked = typeof saved.checked === 'boolean' ? saved.checked : quantity > 0;
+
+        return {
+          id: defaultItem.id,
+          label: defaultItem.label,
+          checked,
+          quantity,
+          details: (saved.details || saved.names || saved.observation || '').trim()
+        };
+      });
+    }
+
+    function getChecklistValuesFromForm() {
+      if (!el.fixedChecklist || !el.fixedChecklist.children.length) return defaultChecklist();
+
+      return FIXED_CHECKLIST_ITEMS.map(item => {
+        const checkedInput = el.fixedChecklist.querySelector(`[data-checklist-check="${item.id}"]`);
+        const quantityInput = el.fixedChecklist.querySelector(`[data-checklist-quantity="${item.id}"]`);
+        const detailsInput = el.fixedChecklist.querySelector(`[data-checklist-details="${item.id}"]`);
+        const parsedQuantity = Number.parseInt(quantityInput?.value || '0', 10);
+        const quantity = Number.isFinite(parsedQuantity) && parsedQuantity >= 0 ? parsedQuantity : 0;
+
+        return {
+          id: item.id,
+          label: item.label,
+          checked: Boolean(checkedInput?.checked),
+          quantity,
+          details: (detailsInput?.value || '').trim()
+        };
+      });
+    }
+
+    function checklistTextLines(checklist = []) {
+      return normalizeChecklist(checklist).map(item => {
+        const quantity = Number.parseInt(item.quantity, 10) || 0;
+        const details = item.details ? item.details.replace(/\.+$/, '') : '';
+
+        if (item.id === 'fiscalizacao' && details) {
+          return `* ${item.label}: ${details}.`;
+        }
+
+        if (details) {
+          return `* ${quantity} ${item.label}: ${details}.`;
+        }
+
+        return `* ${quantity} ${item.label}.`;
+      });
+    }
+
+    function renderFixedChecklist(checklist = []) {
+      if (!el.fixedChecklist) return;
+      const normalized = normalizeChecklist(checklist);
+
+      el.fixedChecklist.innerHTML = normalized.map(item => {
+        const defaultItem = FIXED_CHECKLIST_ITEMS.find(defaultItem => defaultItem.id === item.id) || item;
+        return `
+          <div class="checklist-row">
+            <label class="checklist-item-label">
+              <input data-checklist-check="${escapeHTML(item.id)}" type="checkbox" ${item.checked ? 'checked' : ''} />
+              <span>${escapeHTML(item.label)}</span>
+            </label>
+            <div>
+              <label for="checklist-quantity-${escapeHTML(item.id)}">Qtd.</label>
+              <input id="checklist-quantity-${escapeHTML(item.id)}" data-checklist-quantity="${escapeHTML(item.id)}" type="number" min="0" step="1" value="${Number.parseInt(item.quantity, 10) || 0}" />
+            </div>
+            <div>
+              <label for="checklist-details-${escapeHTML(item.id)}">Nomes / observação</label>
+              <input id="checklist-details-${escapeHTML(item.id)}" data-checklist-details="${escapeHTML(item.id)}" type="text" value="${escapeHTML(item.details)}" placeholder="${escapeHTML(defaultItem.detailsPlaceholder || 'Opcional')}" />
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      el.fixedChecklist.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', () => {
+          syncChecklistRow(input);
+          updateDayPreview();
+        });
+        input.addEventListener('change', () => {
+          syncChecklistRow(input);
+          updateDayPreview();
+        });
+      });
+    }
+
+    function syncChecklistRow(input) {
+      const row = input.closest('.checklist-row');
+      if (!row) return;
+
+      const checkedInput = row.querySelector('[data-checklist-check]');
+      const quantityInput = row.querySelector('[data-checklist-quantity]');
+      const parsedQuantity = Number.parseInt(quantityInput?.value || '0', 10);
+      const quantity = Number.isFinite(parsedQuantity) && parsedQuantity >= 0 ? parsedQuantity : 0;
+
+      if (input.matches('[data-checklist-check]')) {
+        if (checkedInput.checked && quantity === 0) quantityInput.value = '1';
+        if (!checkedInput.checked) quantityInput.value = '0';
+        return;
+      }
+
+      if (input.matches('[data-checklist-quantity]')) {
+        checkedInput.checked = quantity > 0;
+      }
+    }
+
     function sortEntries(entries) {
       return [...entries].sort((a, b) => {
         const timeA = a.time || '99:99';
@@ -911,6 +1117,7 @@
         dayStatus: report.dayStatus || report.status || 'Em andamento',
         responsible: report.responsible || '',
         generalNotes: report.generalNotes || '',
+        checklist: normalizeChecklist(report.checklist || report.fixedChecklist || report.resourcesChecklist),
         entries: sortEntries(legacyEntries.filter(entry => entry.description)),
         createdAt: report.createdAt || new Date().toISOString(),
         updatedAt: report.updatedAt || new Date().toISOString()
@@ -975,6 +1182,7 @@
         dayStatus: el.dayStatus.value,
         responsible: el.responsible.value.trim(),
         generalNotes: el.generalNotes.value.trim(),
+        checklist: getChecklistValuesFromForm(),
         entries: existing ? existing.entries : []
       });
     }
@@ -1003,6 +1211,7 @@
     }
 
     function buildReportText(report) {
+      const checklistText = checklistTextLines(report.checklist).join('\n');
       const entriesText = report.entries.length
         ? sortEntries(report.entries).map(entry => {
             const details = [];
@@ -1024,6 +1233,9 @@
         `Condição do dia: ${report.condition || 'Não informado'}`,
         `Status: ${report.dayStatus || 'Não informado'}`,
         `Responsável/Supervisor: ${report.responsible || 'Não informado'}`,
+        '',
+        'Checklist fixo:',
+        checklistText,
         '',
         'Observações gerais:',
         report.generalNotes || 'Nenhuma observação geral.',
@@ -1090,7 +1302,8 @@
           const entriesText = report.entries
             .map(entry => `${entry.time} ${entry.type} ${entry.impact} ${entry.people} ${entry.resource} ${entry.description}`)
             .join(' ');
-          const haystack = `${formatDateBR(report.date)} ${report.date} ${report.employee} ${report.location} ${report.shift} ${report.condition} ${report.dayStatus} ${report.responsible} ${report.generalNotes} ${entriesText}`.toLowerCase();
+          const checklistText = checklistTextLines(report.checklist).join(' ');
+          const haystack = `${formatDateBR(report.date)} ${report.date} ${report.employee} ${report.location} ${report.shift} ${report.condition} ${report.dayStatus} ${report.responsible} ${report.generalNotes} ${checklistText} ${entriesText}`.toLowerCase();
           return haystack.includes(term);
         }
 
@@ -1135,6 +1348,7 @@
       el.dayStatus.value = report?.dayStatus || 'Em andamento';
       el.responsible.value = report?.responsible || '';
       el.generalNotes.value = report?.generalNotes || '';
+      renderFixedChecklist(report?.checklist || defaultChecklist());
 
       clearEntryForm();
       renderDaily();
@@ -1265,6 +1479,13 @@
       el.printTitle.textContent = title;
       el.printContent.textContent = text;
       window.print();
+    }
+
+    function updateDayPreview() {
+      const report = getCurrentReportFromForm();
+      const text = buildReportText(report);
+      el.dayPreview.textContent = text;
+      el.whatsappDayBtn.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
     }
 
     function openWhatsApp(text) {
@@ -1407,12 +1628,12 @@
       }
 
       const rows = [
-        ['Data', 'Colaborador', 'Local', 'Turno', 'Condicao', 'Status', 'Responsavel', 'Horario', 'Tipo', 'Impacto', 'Equipe', 'Recurso', 'Descricao']
+        ['Data', 'Colaborador', 'Local', 'Turno', 'Condicao', 'Status', 'Responsavel', 'Checklist Fixo', 'Horario', 'Tipo', 'Impacto', 'Equipe', 'Recurso', 'Descricao']
       ];
 
       reports.forEach(report => {
         if (!report.entries.length) {
-          rows.push([report.date, report.employee, report.location, report.shift, report.condition, report.dayStatus, report.responsible, '', '', '', '', '', report.generalNotes]);
+          rows.push([report.date, report.employee, report.location, report.shift, report.condition, report.dayStatus, report.responsible, checklistTextLines(report.checklist).join(' | '), '', '', '', '', '', report.generalNotes]);
           return;
         }
 
@@ -1425,6 +1646,7 @@
             report.condition,
             report.dayStatus,
             report.responsible,
+            checklistTextLines(report.checklist).join(' | '),
             entry.time,
             entry.type,
             entry.impact,
@@ -1541,18 +1763,8 @@
       el.reportDate.addEventListener('change', () => loadDateIntoForm(el.reportDate.value));
 
       [el.employee, el.location, el.shift, el.condition, el.dayStatus, el.responsible, el.generalNotes].forEach(input => {
-        input.addEventListener('input', () => {
-          const report = getCurrentReportFromForm();
-          const text = buildReportText(report);
-          el.dayPreview.textContent = text;
-          el.whatsappDayBtn.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
-        });
-        input.addEventListener('change', () => {
-          const report = getCurrentReportFromForm();
-          const text = buildReportText(report);
-          el.dayPreview.textContent = text;
-          el.whatsappDayBtn.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
-        });
+        input.addEventListener('input', updateDayPreview);
+        input.addEventListener('change', updateDayPreview);
       });
 
       [el.filterStart, el.filterEnd, el.filterOrder, el.filterText].forEach(input => {
